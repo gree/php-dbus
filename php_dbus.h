@@ -18,7 +18,7 @@
 #ifndef PHP_DBUS_H
 #define PHP_DBUS_H
 
-#define PHP_DBUS_VERSION "0.1.0"
+#define PHP_DBUS_VERSION "0.1.1"
 #define PHP_DBUS_EXTNAME "dbus"
 
 #ifdef PHP_WIN32
