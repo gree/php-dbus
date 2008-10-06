@@ -2,10 +2,11 @@ dbus module for PHP
 ------------------------
 
 you can find documentation here:
-http://labs.gree.jp/Top/OpenSource/DBus.html
+http://labs.gree.jp/Top/OpenSource/DBus-en.html (English)
+http://labs.gree.jp/Top/OpenSource/DBus.html (Japanese)
 
 and if you want practical usage of this extension, visit here (Skype API wrapper in PHP w/ this extension):
-http://labs.gree.jp/Top/OpenSource/Skype.html
+http://labs.gree.jp/Top/OpenSource/Skype.html (Japanese)
 
 you can find details of dbus here:
 http://dbus.freedesktop.org/
