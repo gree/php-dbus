@@ -27,6 +27,12 @@
 
 ZEND_DECLARE_MODULE_GLOBALS(dbus)
 
+typedef struct _dbus_connection_watch_list {
+	DBusWatch **watch_list;
+	int watch_count;
+} dbus_connection_watch_list;
+
+
 /* {{{ dbus_functions[] */
 static function_entry dbus_functions[] = {
 	PHP_FE(dbus_bus_get, NULL)

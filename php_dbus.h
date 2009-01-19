@@ -33,11 +33,6 @@
 
 #define	DBUS_GET_THIS(ce)			(getThis() ? (Z_OBJCE_P(getThis()) == ce ? getThis() : NULL) : NULL)
 
-typedef struct _dbus_connection_watch_list {
-	DBusWatch **watch_list;
-	int watch_count;
-} dbus_connection_watch_list;
-
 PHP_MINIT_FUNCTION(dbus);
 PHP_MSHUTDOWN_FUNCTION(dbus);
 PHP_RINIT_FUNCTION(dbus);
