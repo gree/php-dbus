@@ -1,1 +1,2 @@
 Masaki Fujimoto <fujimoto@php.net>
+Santtu Lakkala <inz@inz.fi> (patches for dbus_connection_send())

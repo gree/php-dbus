@@ -43,6 +43,7 @@ PHP_MINFO_FUNCTION(dbus);
 PHP_FUNCTION(dbus_bus_get);
 
 PHP_FUNCTION(dbus_connection_ctor);
+PHP_FUNCTION(dbus_connection_send);
 PHP_FUNCTION(dbus_connection_send_with_reply_and_block);
 PHP_FUNCTION(dbus_connection_register_object_path);
 PHP_FUNCTION(dbus_connection_poll);
