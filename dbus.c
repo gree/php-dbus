@@ -517,8 +517,8 @@ PHP_FUNCTION(dbus_connection_send) {
 /* {{{ proto dbus_connection_send_with_reply_and_block() */
 PHP_FUNCTION(dbus_connection_send_with_reply_and_block) {
 	zval *message;
-	int timeout;
-    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "Ol", &message, dbus_message_entry_ptr, &timeout) == FAILURE) {
+	int timeout = -1;
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|l", &message, dbus_message_entry_ptr, &timeout) == FAILURE) {
 		return;
 	}
 
