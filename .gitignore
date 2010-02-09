@@ -22,4 +22,9 @@
 /config.nice
 /config.status
 /libtool
+/.libs
+/modules
+*.la
+*.lo
+*~
 
