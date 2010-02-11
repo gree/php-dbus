@@ -6,14 +6,19 @@ error_reporting(E_ALL);
 $dbus = dbus_bus_get(DBUS_BUS_SESSION);
 
 $m = new DBusMessage(DBUS_MESSAGE_TYPE_METHOD_CALL);
-echo "1";
 $m->setDestination("org.kde.VisualNotifications");
-echo "2";
+/*
 $m->setPath("/VisualNotifications");
 $m->setInterface("org.kde.VisualNotifications");
-$m->setMember("Notify");
 $m->setAutoStart(true);
-$m->appendArgs("DBus test app",0,0,Null,"Summary","Text body",array(),array(),0);
+$m->setMember("Notify");
+$m->appendArgs("DBus test app",0,0,0,"Summary","Text body",array(),array(),0);
+*/
+
+$m->setPath("/VisualNotifications");
+$m->setInterface("org.freedesktop.DBus.Introspectable");
+$m->setAutoStart(true);
+$m->setMember("Introspect");
 
 echo "a\n";
 try {
@@ -26,6 +31,5 @@ try {
 	print_r($e);
 }
 print "d";
-print_r($dbus);
 print_r($tmp);
 ?>
