@@ -995,6 +995,10 @@ PHP_FUNCTION(dbus_message_get_args) {
 			}
 			break;
 		case DBUS_TYPE_INT32:
+		case DBUS_TYPE_UINT32: // truncates!
+		case DBUS_TYPE_INT16:
+		case DBUS_TYPE_UINT16:
+		case DBUS_TYPE_BYTE:
 			{
 				dbus_int32_t arg;
 				dbus_message_iter_get_basic(&iter, &arg);
