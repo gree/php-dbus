@@ -518,30 +518,34 @@ PHP_FUNCTION(dbus_connection_send) {
 PHP_FUNCTION(dbus_connection_send_with_reply_and_block) {
 	zval *message;
 	int timeout = -1;
-    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|l", &message, dbus_message_entry_ptr, &timeout) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|l", &message, dbus_message_entry_ptr, &timeout) == FAILURE) {
+		WRONG_PARAM_COUNT;
 		return;
 	}
 
 	zval *obj = DBUS_GET_THIS(dbus_connection_entry_ptr);
 	if (!obj) {
-		RETURN_FALSE;
+		zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), "DBus: no connection.");
+		return;
 	}
 
 	DBusConnection *c = _dbus_connection_resource(obj TSRMLS_CC);
 	if (!c) {
-		RETURN_FALSE;
+		zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), "DBus: no connection resource.");
+		return;
 	}
 
 	DBusMessage *m = _dbus_message_resource(message TSRMLS_CC);
 	if (!m) {
-		RETURN_FALSE;
-	}
 
+		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "DBus: no message resource.", 0 TSRMLS_CC);
+		return;
+	}
 	DBusError e;
 	dbus_error_init(&e);
 	DBusMessage *r = dbus_connection_send_with_reply_and_block(c, m, timeout > 0 ?  timeout * 1000 : timeout, &e);
 	if (!r) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "dbus_connection_send_with_reply_and_block() failed (%s)", e.message);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed (%s)", e.message);
 		dbus_error_free(&e);
 		RETURN_FALSE;
 	}
@@ -799,6 +803,59 @@ PHP_FUNCTION(dbus_message_set_auto_start) {
 }
 /* }}} */
 
+static zend_bool iter_append_arg(zval* arg, DBusMessageIter* piter ){
+	switch (Z_TYPE_P(arg)) {
+	case IS_STRING:
+		dbus_message_iter_append_basic(piter, DBUS_TYPE_STRING, &(Z_STRVAL_P(arg)));
+		break;
+	case IS_LONG:
+		dbus_message_iter_append_basic(piter, DBUS_TYPE_INT32, &(Z_STRVAL_P(arg)));
+		break;
+	case IS_DOUBLE:
+		dbus_message_iter_append_basic(piter, DBUS_TYPE_DOUBLE, &(Z_STRVAL_P(arg)));
+		break;
+	case IS_BOOL:
+		dbus_message_iter_append_basic(piter, DBUS_TYPE_BOOLEAN, &(Z_STRVAL_P(arg)));
+		break;
+	case IS_ARRAY:
+	{
+		DBusMessageIter sub_iter;
+		HashTable *arr_hash;
+		HashPosition pointer;
+		zval **data;
+		
+		if (! dbus_message_iter_open_container(piter, DBUS_TYPE_ARRAY, "s" , &sub_iter))
+			zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Internal error: cannot open DBus message container.", 0 TSRMLS_CC);
+
+		// TODO: we completely ignore the keys, see zend_hash_get_current_key_ex(...)
+		
+		arr_hash = Z_ARRVAL_P(arg);
+		
+		for(zend_hash_internal_pointer_reset_ex(arr_hash, &pointer); zend_hash_get_current_data_ex(arr_hash, (void**) &data, &pointer) == SUCCESS; zend_hash_move_forward_ex(arr_hash, &pointer))
+			if (!iter_append_arg(*data, &sub_iter)){
+				// TODO: free something?
+				dbus_message_iter_abandon_container(piter, &sub_iter);
+				return FALSE;
+			}
+		if (! dbus_message_iter_close_container(piter, &sub_iter))
+			zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Internal error: cannot close DBus message container.", 0 TSRMLS_CC);
+	}
+		break;
+	case IS_NULL:
+	{
+		int emptyin = 0;
+		dbus_message_iter_append_basic(piter, DBUS_TYPE_BOOLEAN, &emptyin);
+		break;
+	}
+	default:
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "unsupported type of argument -> skipping (type:%d)", Z_TYPE_P(arg));
+		break;
+	}
+
+	return TRUE;
+}
+
+
 /* {{{ proto dbus_message_append_args() */
 PHP_FUNCTION(dbus_message_append_args) {
 	zval *obj = DBUS_GET_THIS(dbus_message_entry_ptr);
@@ -827,22 +884,9 @@ PHP_FUNCTION(dbus_message_append_args) {
 		DBusMessageIter iter;
 		dbus_message_iter_init_append(m, &iter);
 
-		switch (Z_TYPE_PP(arg)) {
-		case IS_STRING:
-			dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &(Z_STRVAL_PP(arg)));
-			break;
-		case IS_LONG:
-			dbus_message_iter_append_basic(&iter, DBUS_TYPE_INT32, &(Z_STRVAL_PP(arg)));
-			break;
-		case IS_DOUBLE:
-			dbus_message_iter_append_basic(&iter, DBUS_TYPE_DOUBLE, &(Z_STRVAL_PP(arg)));
-			break;
-		case IS_BOOL:
-			dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &(Z_STRVAL_PP(arg)));
-			break;
-		default:
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "unsupported type of argument -> skipping (type:%d, index:%d)", Z_TYPE_PP(arg), i);
-			break;
+		if (!iter_append_arg(*arg, &iter)){
+			efree(args);
+			RETURN_FALSE;
 		}
 	}
 
@@ -899,6 +943,13 @@ PHP_FUNCTION(dbus_message_get_args) {
 				add_index_double(return_value, i, arg);
 			}
 			break;
+		/*
+		case DBUS_TYPE_ARRAY:
+			{
+				add_index_ ()
+			}
+			break;
+		*/
 		default:
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "unsupported type of argument -> skipping (type:%d, index:%d)", type, i);
 			break;
