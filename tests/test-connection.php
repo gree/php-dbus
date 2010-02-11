@@ -51,6 +51,15 @@ case 'introspect':
 	$m->setAutoStart(true);
 	$m->setMember("Introspect");
 	break;
+
+case 'getnots':
+	$m->setDestination("org.kde.NotificationItemWatcher");
+	$m->setPath("/NotificationItemWatcher");
+	$m->setInterface("org.kde.NotificationItemWatcher");
+	$m->setAutoStart(true);
+	$m->setMember("RegisteredServices");
+	break;
+
 default:
 	echo "Please specify the type of test\n";
 	exit(1);
