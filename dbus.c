@@ -50,6 +50,7 @@ static function_entry dbus_functions[] = {
 	PHP_FE(dbus_message_set_member, NULL)
 	PHP_FE(dbus_message_set_auto_start, NULL)
 	PHP_FE(dbus_message_append_args, NULL)
+	PHP_FE(dbus_message_append_arg1, NULL)
 	PHP_FE(dbus_message_get_args, NULL)
     {NULL, NULL, NULL}
 };
@@ -75,6 +76,7 @@ static zend_function_entry dbus_message_functions[] = {
 	PHP_FALIAS(setmember,			dbus_message_set_member,			NULL)
 	PHP_FALIAS(setautostart,		dbus_message_set_auto_start,		NULL)
 	PHP_FALIAS(appendargs,			dbus_message_append_args,			NULL)
+	PHP_FALIAS(appendarg1,			dbus_message_append_arg1,			NULL)
 	PHP_FALIAS(getargs,				dbus_message_get_args,				NULL)
 	{NULL, NULL, NULL}
 };
@@ -803,28 +805,56 @@ PHP_FUNCTION(dbus_message_set_auto_start) {
 }
 /* }}} */
 
-static zend_bool iter_append_arg(zval* arg, DBusMessageIter* piter ){
+static zend_bool iter_append_arg(zval* arg, DBusMessageIter* piter, const char* typ){
+	char atyp;
+	if (typ == NULL)
+		atyp = '\0';
+	else
+		atyp = typ[0];
+
 	switch (Z_TYPE_P(arg)) {
 	case IS_STRING:
 		dbus_message_iter_append_basic(piter, DBUS_TYPE_STRING, &(Z_STRVAL_P(arg)));
 		break;
 	case IS_LONG:
-		dbus_message_iter_append_basic(piter, DBUS_TYPE_INT32, &(Z_STRVAL_P(arg)));
+		if (atyp == 'u' )
+			dbus_message_iter_append_basic(piter, DBUS_TYPE_UINT32, &(Z_STRVAL_P(arg)));
+		else if (atyp == 'y' )
+			dbus_message_iter_append_basic(piter, DBUS_TYPE_BYTE, &(Z_STRVAL_P(arg)));
+		else if (atyp == 'n' )
+			dbus_message_iter_append_basic(piter, DBUS_TYPE_INT16, &(Z_STRVAL_P(arg)));
+		else if (atyp == 'q' )
+			dbus_message_iter_append_basic(piter, DBUS_TYPE_UINT16, &(Z_STRVAL_P(arg)));
+		else if (atyp == '\0' || atyp == 'i')
+			dbus_message_iter_append_basic(piter, DBUS_TYPE_INT32, &(Z_STRVAL_P(arg)));
+		else
+			goto Invalid_combo;
 		break;
 	case IS_DOUBLE:
+		if (atyp != '\0' && atyp != 'd')
+			goto Invalid_combo;
 		dbus_message_iter_append_basic(piter, DBUS_TYPE_DOUBLE, &(Z_STRVAL_P(arg)));
 		break;
 	case IS_BOOL:
+		if (atyp != '\0' && atyp != 'b')
+			goto Invalid_combo;
 		dbus_message_iter_append_basic(piter, DBUS_TYPE_BOOLEAN, &(Z_STRVAL_P(arg)));
 		break;
 	case IS_ARRAY:
 	{
+		if (atyp != '\0' && atyp != 'a')
+			goto Invalid_combo;
+
 		DBusMessageIter sub_iter;
 		HashTable *arr_hash;
 		HashPosition pointer;
 		zval **data;
+		const char *btyp = "s";
 		
-		if (! dbus_message_iter_open_container(piter, DBUS_TYPE_ARRAY, "s" , &sub_iter))
+		if (atyp && typ && typ[0])
+			btyp = &typ[1];
+			
+		if (! dbus_message_iter_open_container(piter, DBUS_TYPE_ARRAY, btyp , &sub_iter))
 			zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Internal error: cannot open DBus message container.", 0 TSRMLS_CC);
 
 		// TODO: we completely ignore the keys, see zend_hash_get_current_key_ex(...)
@@ -832,7 +862,7 @@ static zend_bool iter_append_arg(zval* arg, DBusMessageIter* piter ){
 		arr_hash = Z_ARRVAL_P(arg);
 		
 		for(zend_hash_internal_pointer_reset_ex(arr_hash, &pointer); zend_hash_get_current_data_ex(arr_hash, (void**) &data, &pointer) == SUCCESS; zend_hash_move_forward_ex(arr_hash, &pointer))
-			if (!iter_append_arg(*data, &sub_iter)){
+			if (!iter_append_arg(*data, &sub_iter, btyp)){
 				// TODO: free something?
 				dbus_message_iter_abandon_container(piter, &sub_iter);
 				return FALSE;
@@ -844,7 +874,9 @@ static zend_bool iter_append_arg(zval* arg, DBusMessageIter* piter ){
 	case IS_NULL:
 	{
 		int emptyin = 0;
-		dbus_message_iter_append_basic(piter, DBUS_TYPE_BOOLEAN, &emptyin);
+		if (atyp == '\0')
+			atyp = 'i';
+		dbus_message_iter_append_basic(piter, (int) atyp, &emptyin);
 		break;
 	}
 	default:
@@ -853,6 +885,11 @@ static zend_bool iter_append_arg(zval* arg, DBusMessageIter* piter ){
 	}
 
 	return TRUE;
+
+	Invalid_combo:
+	zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), 
+			"Append argument: cannot map PHP type %d to DBus signature '%s'.", Z_TYPE_P(arg), atyp);
+	return FALSE;
 }
 
 
@@ -884,13 +921,48 @@ PHP_FUNCTION(dbus_message_append_args) {
 		DBusMessageIter iter;
 		dbus_message_iter_init_append(m, &iter);
 
-		if (!iter_append_arg(*arg, &iter)){
+		if (!iter_append_arg(*arg, &iter,NULL)){
 			efree(args);
 			RETURN_FALSE;
 		}
 	}
 
 	efree(args);
+
+	RETURN_TRUE;
+}
+/* }}} */
+
+/* {{{ proto dbus_message_append_arg1() */
+PHP_FUNCTION(dbus_message_append_arg1) {
+	zval *obj = DBUS_GET_THIS(dbus_message_entry_ptr);
+	if (!obj) {
+		zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), "DBus: no message ptr.");
+		return;
+	}
+
+	DBusMessage *m = _dbus_message_resource(obj TSRMLS_CC);
+	if (!m) {
+		zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), "DBus: no message resource.");
+		return;
+	}
+
+	zval *arg;
+	char *typ = NULL;
+	int typ_len = 0;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|s", &arg, &typ, &typ_len) == FAILURE) {
+		WRONG_PARAM_COUNT;
+		return;
+	}
+
+	if (typ_len > 0)
+		typ[typ_len] = '\0';
+	
+	DBusMessageIter iter;
+	dbus_message_iter_init_append(m, &iter);
+
+	if (!iter_append_arg(arg, &iter, typ))
+		RETURN_FALSE;
 
 	RETURN_TRUE;
 }

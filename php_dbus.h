@@ -55,6 +55,7 @@ PHP_FUNCTION(dbus_message_set_interface);
 PHP_FUNCTION(dbus_message_set_member);
 PHP_FUNCTION(dbus_message_set_auto_start);
 PHP_FUNCTION(dbus_message_append_args);
+PHP_FUNCTION(dbus_message_append_arg1);
 PHP_FUNCTION(dbus_message_get_args);
 /* }}} */
 
