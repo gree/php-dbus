@@ -968,6 +968,65 @@ PHP_FUNCTION(dbus_message_append_arg1) {
 }
 /* }}} */
 
+static void iter_parse_args(DBusMessageIter *piter, int i, zval* return_value){
+
+	int type = dbus_message_iter_get_arg_type(piter);
+	switch (type) {
+	case DBUS_TYPE_STRING:
+		{
+			char *arg;
+			dbus_message_iter_get_basic(piter, &arg);
+			add_index_string(return_value, i, arg, 1);
+		}
+		break;
+	case DBUS_TYPE_INT32:
+	case DBUS_TYPE_UINT32: // truncates!
+	case DBUS_TYPE_INT16:
+	case DBUS_TYPE_UINT16:
+	case DBUS_TYPE_BYTE:
+		{
+			dbus_int32_t arg;
+			dbus_message_iter_get_basic(piter, &arg);
+			add_index_long(return_value, i, arg);
+		}
+		break;
+	case DBUS_TYPE_BOOLEAN:
+		{
+			dbus_bool_t arg;
+			dbus_message_iter_get_basic(piter, &arg);
+			add_index_bool(return_value, i, arg);
+		}
+		break;
+	case DBUS_TYPE_DOUBLE:
+		{
+			double arg;
+			dbus_message_iter_get_basic(piter, &arg);
+			add_index_double(return_value, i, arg);
+		}
+		break;
+
+	case DBUS_TYPE_ARRAY:
+		{
+			zval *arr;
+			DBusMessageIter subit;
+			ALLOC_INIT_ZVAL(arr);
+			array_init(arr);
+			dbus_message_iter_recurse(piter, &subit);
+
+			int o = 0;
+			do {
+				iter_parse_args(&subit, o++, arr);
+			} while(dbus_message_iter_next(&subit));
+			
+			add_index_zval(return_value,i,arr);
+		}
+		break;
+	default:
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "unsupported type of argument -> skipping (type:%d, index:%d)", type, i);
+		break;
+	}
+}
+
 /* {{{ proto dbus_message_get_args() */
 PHP_FUNCTION(dbus_message_get_args) {
 	zval *obj = DBUS_GET_THIS(dbus_message_entry_ptr);
@@ -986,50 +1045,7 @@ PHP_FUNCTION(dbus_message_get_args) {
 	int i = 0;
 	array_init(return_value);
 	while ((type = dbus_message_iter_get_arg_type(&iter)) != DBUS_TYPE_INVALID) {
-		switch (type) {
-		case DBUS_TYPE_STRING:
-			{
-				char *arg;
-				dbus_message_iter_get_basic(&iter, &arg);
-				add_index_string(return_value, i, arg, 1);
-			}
-			break;
-		case DBUS_TYPE_INT32:
-		case DBUS_TYPE_UINT32: // truncates!
-		case DBUS_TYPE_INT16:
-		case DBUS_TYPE_UINT16:
-		case DBUS_TYPE_BYTE:
-			{
-				dbus_int32_t arg;
-				dbus_message_iter_get_basic(&iter, &arg);
-				add_index_long(return_value, i, arg);
-			}
-			break;
-		case DBUS_TYPE_BOOLEAN:
-			{
-				dbus_bool_t arg;
-				dbus_message_iter_get_basic(&iter, &arg);
-				add_index_bool(return_value, i, arg);
-			}
-			break;
-		case DBUS_TYPE_DOUBLE:
-			{
-				double arg;
-				dbus_message_iter_get_basic(&iter, &arg);
-				add_index_double(return_value, i, arg);
-			}
-			break;
-		/*
-		case DBUS_TYPE_ARRAY:
-			{
-				add_index_ ()
-			}
-			break;
-		*/
-		default:
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "unsupported type of argument -> skipping (type:%d, index:%d)", type, i);
-			break;
-		}
+		iter_parse_args(&iter, i, return_value);
 		dbus_message_iter_next(&iter);
 		i++;
 	}
