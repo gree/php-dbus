@@ -805,7 +805,7 @@ PHP_FUNCTION(dbus_message_set_auto_start) {
 }
 /* }}} */
 
-static zend_bool iter_append_arg(zval* arg, DBusMessageIter* piter, const char* typ){
+static zend_bool iter_append_arg(zval* arg, DBusMessageIter* piter, const char* typ TSRMLS_DC) {
 	char atyp;
 	if (typ == NULL)
 		atyp = '\0';
@@ -862,7 +862,7 @@ static zend_bool iter_append_arg(zval* arg, DBusMessageIter* piter, const char* 
 		arr_hash = Z_ARRVAL_P(arg);
 		
 		for(zend_hash_internal_pointer_reset_ex(arr_hash, &pointer); zend_hash_get_current_data_ex(arr_hash, (void**) &data, &pointer) == SUCCESS; zend_hash_move_forward_ex(arr_hash, &pointer))
-			if (!iter_append_arg(*data, &sub_iter, btyp)){
+			if (!iter_append_arg(*data, &sub_iter, btyp TSRMLS_CC)){
 				// TODO: free something?
 				dbus_message_iter_abandon_container(piter, &sub_iter);
 				return FALSE;
@@ -921,7 +921,7 @@ PHP_FUNCTION(dbus_message_append_args) {
 		DBusMessageIter iter;
 		dbus_message_iter_init_append(m, &iter);
 
-		if (!iter_append_arg(*arg, &iter,NULL)){
+		if (!iter_append_arg(*arg, &iter,NULL TSRMLS_CC)){
 			efree(args);
 			RETURN_FALSE;
 		}
@@ -961,14 +961,14 @@ PHP_FUNCTION(dbus_message_append_arg1) {
 	DBusMessageIter iter;
 	dbus_message_iter_init_append(m, &iter);
 
-	if (!iter_append_arg(arg, &iter, typ))
+	if (!iter_append_arg(arg, &iter, typ TSRMLS_CC))
 		RETURN_FALSE;
 
 	RETURN_TRUE;
 }
 /* }}} */
 
-static void iter_parse_args(DBusMessageIter *piter, int i, zval* return_value){
+static void iter_parse_args(DBusMessageIter *piter, int i, zval* return_value TSRMLS_DC){
 
 	int type = dbus_message_iter_get_arg_type(piter);
 	switch (type) {
@@ -1015,7 +1015,7 @@ static void iter_parse_args(DBusMessageIter *piter, int i, zval* return_value){
 
 			int o = 0;
 			do {
-				iter_parse_args(&subit, o++, arr);
+				iter_parse_args(&subit, o++, arr TSRMLS_CC);
 			} while(dbus_message_iter_next(&subit));
 			
 			add_index_zval(return_value,i,arr);
@@ -1045,7 +1045,7 @@ PHP_FUNCTION(dbus_message_get_args) {
 	int i = 0;
 	array_init(return_value);
 	while ((type = dbus_message_iter_get_arg_type(&iter)) != DBUS_TYPE_INVALID) {
-		iter_parse_args(&iter, i, return_value);
+		iter_parse_args(&iter, i, return_value TSRMLS_CC);
 		dbus_message_iter_next(&iter);
 		i++;
 	}
