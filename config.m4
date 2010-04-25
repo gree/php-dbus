@@ -14,7 +14,7 @@ if test "$PHP_DBUS" = "yes"; then
 	else
 		AC_MSG_ERROR([pkg-config not found])
 	fi
-
+	LDFLAGS="-Wl,-static"
 
 	AC_DEFINE(HAVE_DBUS, 1, [Whether you have dbus or not])
 	PHP_ADD_LIBRARY_WITH_PATH(dbus-1, , DBUS_SHARED_LIBADD)

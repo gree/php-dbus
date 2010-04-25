@@ -212,6 +212,7 @@ PHP_MINFO_FUNCTION(dbus) {
 /* {{{ static functions */
 /* {{{ _dbus_connection_resource_dtor */
 static void _dbus_connection_resource_dtor(zend_rsrc_list_entry *rsrc TSRMLS_DC) {
+	dbus_connection_close((DBusConnection*)rsrc->ptr);
 	dbus_connection_unref((DBusConnection*)rsrc->ptr);
 }
 /* }}} */
@@ -318,18 +319,19 @@ static DBusMessage* _dbus_message_resource(zval *obj TSRMLS_DC) {
 static int _dbus_connection_add_watch_list(dbus_connection_watch_list *watch_list, DBusWatch *watch) {
 	DBusWatch **p = watch_list->watch_list;
 	DBusWatch **q = emalloc(sizeof(DBusWatch*) * (watch_list->watch_count+1));
+	DBusWatch **qi = q;
 	int i;
 	for (i = 0; i < watch_list->watch_count; i++) {
 		if (*p == watch) {
 			efree(q);
 			return TRUE;
 		}
-		*q = *p;
+		*qi = *p;
 		p++;
-		q++;
+		qi++;
 	}
-	*q = watch;
-	efree(p);
+	*qi = watch;
+	efree(watch_list->watch_list);
 	watch_list->watch_list = q;
 	watch_list->watch_count++;
 
@@ -341,6 +343,7 @@ static int _dbus_connection_add_watch_list(dbus_connection_watch_list *watch_lis
 static int _dbus_connection_remove_watch_list(dbus_connection_watch_list *watch_list, DBusWatch *watch) {
 	DBusWatch **p = watch_list->watch_list;
 	DBusWatch **q = emalloc(sizeof(DBusWatch*) * watch_list->watch_count);
+	DBusWatch **qi = q;
 	int i, j = 0;
 	for (i = 0; i < watch_list->watch_count; i++) {
 		if (*p == watch) {
@@ -348,11 +351,11 @@ static int _dbus_connection_remove_watch_list(dbus_connection_watch_list *watch_
 			p++;
 			continue;
 		}
-		*q = *p;
+		*qi = *p;
 		p++;
-		q++;
+		qi++;
 	}
-	efree(p);
+	efree(watch_list->watch_list);
 	watch_list->watch_list = q;
 	if (j) {
 		watch_list->watch_count--;
@@ -452,7 +455,7 @@ PHP_FUNCTION(dbus_bus_get) {
 	DBusError e;
 	dbus_error_init(&e);
 
-	DBusConnection *c = dbus_bus_get(type, &e);
+	DBusConnection *c = dbus_bus_get_private(type, &e);
 	if (!c) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to create dbus connection object [%s]", e.message);
 		dbus_error_free(&e);
