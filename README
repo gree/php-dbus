@@ -1,6 +1,15 @@
 dbus module for PHP
 ------------------------
+Instalation:
+phpize
+./configure
+make
+make install
 
+and then just
+service apache2 restart
+
+------------------------
 you can find documentation here:
 http://labs.gree.jp/Top/OpenSource/DBus-en.html (English)
 http://labs.gree.jp/Top/OpenSource/DBus.html (Japanese)

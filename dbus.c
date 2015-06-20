@@ -34,7 +34,7 @@ typedef struct _dbus_connection_watch_list {
 
 
 /* {{{ dbus_functions[] */
-static function_entry dbus_functions[] = {
+static zend_function_entry dbus_functions[] = {
 	PHP_FE(dbus_bus_get, NULL)
 
 	PHP_FE(dbus_connection_ctor, NULL)
