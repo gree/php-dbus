@@ -1,18 +1,13 @@
 dbus module for PHP
 ------------------------
 Instalation:
-
-```
 phpize
 ./configure
 make
 make install
-```
 
 and then just
-```
 service apache2 restart
-```
 
 ------------------------
 you can find documentation here:
